@@ -7,14 +7,15 @@ import cartopy.feature as cfeature
 import cartopy.crs as ccrs
 import matplotlib.patches as mpatches
 import glob
+from parameter import *
 
 # 表示させたい緯度経度の範囲
-thisLon = [123.7, 123.9]    # [min, max]
-thisLat = [9.6, 9.8]    # [min, max]    
-
-# ピックアップしたいポイント
-pickupLon = 123.83538
-pickupLat = 9.65851
+#thisLon = [123.7, 123.9]    # [min, max]
+#thisLat = [9.6, 9.8]    # [min, max]    
+#
+## ピックアップしたいポイント
+#pickupLon = 123.83538
+#pickupLat = 9.65851
 
 def getLatLonArray(geoCoordNCFile:str, thisLat:list,thisLon:list):
     '''
@@ -153,14 +154,15 @@ def makeFigure(thisDataFolder,f):
     #coast = ax.coastlines(resolution="10m")
 
     # 行政界の描画
-    src = shapereader.Reader('./adminAroundTagbilaran/adminAroundTagbilaran.shp')
+    for thisShp in visSHPs:
+        src = shapereader.Reader(shpDir + thisShp)
 
-    shp_ftr = ShapelyFeature(src.geometries(),
-            ccrs.PlateCarree(),
-            edgecolor='brown',
-            facecolor=cfeature.COLORS['land'])
+        shp_ftr = ShapelyFeature(src.geometries(),
+                ccrs.PlateCarree(),
+                edgecolor='brown',
+                facecolor=cfeature.COLORS['land'])
 
-    ax.add_feature(shp_ftr)
+        ax.add_feature(shp_ftr)
 
     ax.set_xlim(thisLon[0],thisLon[1])
     ax.set_ylim(thisLat[0],thisLat[1])
@@ -175,7 +177,7 @@ if __name__ == '__main__':
 
     # SENTINEL3のncファイル
     #dataFolder = './data5'  #よくにごっているやつ
-    dataFolders = glob.glob('S3*')
+    dataFolders = glob.glob('./data/S3*')
 
     #for thisDataFolder in dataFolders:
 
