@@ -8,14 +8,14 @@ import cartopy.crs as ccrs
 import matplotlib.patches as mpatches
 import glob
 from parameter import *
+import subprocess
+import os
 
-# 表示させたい緯度経度の範囲
-#thisLon = [123.7, 123.9]    # [min, max]
-#thisLat = [9.6, 9.8]    # [min, max]    
-#
-## ピックアップしたいポイント
-#pickupLon = 123.83538
-#pickupLat = 9.65851
+def writeTimeseries():
+    '''
+    時系列データの書き込みを行う
+    '''
+    pass
 
 def getLatLonArray(geoCoordNCFile:str, thisLat:list,thisLon:list):
     '''
@@ -116,91 +116,103 @@ def makeTimeseries(thisDataFolder,itemArray,latArray,lonArray,f):
     
 
 
-def makeFigure(thisDataFolder,f):
-    '''
-    このdataFolderの図を作成する
-    '''
-    ## 緯度経度のファイル
-    geoCoordNCFile = thisDataFolder + '/geo_coordinates.nc'
-    geoNC = netCDF4.Dataset(geoCoordNCFile,'r')
-    ## 対象項目(クロロフィル)
-    chlNCFile = thisDataFolder + '/chl_nn.nc'
-    chlNC = netCDF4.Dataset(chlNCFile,'r')
-    chlLabel = 'CHL_NN'
 
-    itemNC=chlNC
-    itemLabel = chlLabel
+class visSentinel():
+
+    def __init__(self):
+
+        self.dataDir = dataDir
+        self.pngExec = pngExec
+        self.pickupExec = pickupExec
+        # 画像出力を行う場合
+        if self.pngExec == True:
+            self.pngDir = pngDir
+            ## フォルダ作成
+            if not os.path.isdir(pngDir):
+                subprocess.run(['mkdir','-p',pngDir])
+
+        ## 連続値結果を取得する場合
+        if self.pickupExec == True:
+            self.pickupDir = pickupDir
+            # フォルダ作成
+            if not os.path.isdir(pickupDir):
+                subprocess.run(['mkdir','-p',pickupDir])
+
+            with open(f'{self.pickupDir}/{pickupResFilename}','w') as f:
+                f.write('date,value\n')
+
+        # sentinelデータはS3から始まるディレクトリに格納されている
+        dataFolders = glob.glob(dataDir +'/S3*')
+
+        for i,thisDataFolder in enumerate(dataFolders):
+         
+            print(f'{i+1}番目/{len(dataFolders)}中')
+            try:
+                self.makeFigure(thisDataFolder)
+            except Exception as e:
+                print(e)
+
+            writeTimeseries()
+        
+    def makeFigure(self,thisDataFolder):
+        '''
+        このdataFolderの図を作成する
+        '''
+        ## 緯度経度のファイル
+        geoCoordNCFile = thisDataFolder + '/geo_coordinates.nc'
+        geoNC = netCDF4.Dataset(geoCoordNCFile,'r')
+        ## 対象項目(クロロフィル)
+        chlNCFile = thisDataFolder + '/chl_nn.nc'
+        chlNC = netCDF4.Dataset(chlNCFile,'r')
+        chlLabel = 'CHL_NN'
+
+        itemNC=chlNC
+        itemLabel = chlLabel
 
 
-    regionIndex = getLatLonArray(geoCoordNCFile,thisLat,thisLon)
+        regionIndex = getLatLonArray(geoCoordNCFile,thisLat,thisLon)
 
 
-    # 緯度・経度・項目の配列を取得
-    startLatIndex = regionIndex
-    itemArray, latArray, lonArray = getArrays(
-            geoNC,itemNC,itemLabel,regionIndex)
+        # 緯度・経度・項目の配列を取得
+        startLatIndex = regionIndex
+        itemArray, latArray, lonArray = getArrays(
+                geoNC,itemNC,itemLabel,regionIndex)
 
-    makeTimeseries(thisDataFolder,itemArray,latArray,lonArray,f)
+        #makeTimeseries(thisDataFolder,itemArray,latArray,lonArray,f)
 
-    fig = plt.figure()
+        fig = plt.figure()
 
-    ax = fig.add_subplot(111,projection=ccrs.PlateCarree())
+        ax = fig.add_subplot(111,projection=ccrs.PlateCarree())
 
-    cont = ax.contourf(lonArray, latArray, 10**itemArray, 
-            levels=range(0,50,10),cmap='jet',
-                 transform=ccrs.PlateCarree())
-    cbar =fig.colorbar(cont)
+        cont = ax.contourf(lonArray, latArray, 10**itemArray, 
+                levels=range(0,50,10),cmap='jet',
+                     transform=ccrs.PlateCarree())
+        cbar =fig.colorbar(cont)
 
-    #coast = ax.coastlines(resolution="10m")
+        #coast = ax.coastlines(resolution="10m")
 
-    # 行政界の描画
-    for thisShp in visSHPs:
-        src = shapereader.Reader(shpDir + thisShp)
+        # 行政界の描画
+        for thisShp in visSHPs:
+            src = shapereader.Reader(shpDir + thisShp)
 
-        shp_ftr = ShapelyFeature(src.geometries(),
-                ccrs.PlateCarree(),
-                edgecolor='brown',
-                facecolor=cfeature.COLORS['land'])
+            shp_ftr = ShapelyFeature(src.geometries(),
+                    ccrs.PlateCarree(),
+                    edgecolor='brown',
+                    facecolor=cfeature.COLORS['land'])
 
-        ax.add_feature(shp_ftr)
+            ax.add_feature(shp_ftr)
 
-    ax.set_xlim(thisLon[0],thisLon[1])
-    ax.set_ylim(thisLat[0],thisLat[1])
+        ax.set_xlim(thisLon[0],thisLon[1])
+        ax.set_ylim(thisLat[0],thisLat[1])
 
-    
-    thisDate = thisDataFolder.split('_')[7]
-    plt.savefig(f'./png/{thisDate}.png')
-
+        
+        thisDate = thisDataFolder.split('_')[7]
+        plt.savefig(f'{self.pngDir}/{thisDate}.png')
 
 
 if __name__ == '__main__':
 
-    # SENTINEL3のncファイル
-    #dataFolder = './data5'  #よくにごっているやつ
-    dataFolders = glob.glob('./data/S3*')
-
-    #for thisDataFolder in dataFolders:
-
-    #    try:
-
-    #        makeFigure(thisDataFolder)
-
-    #    except Exception as e:
-    #        print(e)
-
-    with open('resTimeseries.csv','w') as f:
-        f.write('date,value\n')
-        for i,thisDataFolder in enumerate(dataFolders):
-         
-            print(f'{i}番目/{len(dataFolders)}中')
-            try:
-                makeFigure(thisDataFolder,f)
-            except Exception as e:
-                print(e)
-    #f = open('test.csv','w')
-    #makeFigure('S3A_OL_2_WFR____20190207T015704_20190207T020004_20190208T103445_0179_041_117_2700_MAR_O_NT_002.SEN3',f)
-
-    #f.close()
+    thisVis = visSentinel()
 
 
 
