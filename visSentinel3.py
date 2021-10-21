@@ -17,16 +17,16 @@ def writeTimeseries():
     '''
     pass
 
-def getLatLonArray(geoCoordNCFile:str, thisLat:list,thisLon:list):
+def getLatLonArray(geoCoordNCFile:str, lats:list,lons:list):
     '''
     指定範囲内の配列を得る
     '''
 
     # 指定範囲の最小最大からstart, endを算出
-    startLat = min(thisLat)
-    endLat = max(thisLat)
-    startLon = min(thisLon)
-    endLon = max(thisLon)
+    startLat = min(lats)
+    endLat = max(lats)
+    startLon = min(lons)
+    endLon = max(lons)
 
     # netCDF4の読み込み
     with netCDF4.Dataset(geoCoordNCFile,'r') as geoNC:
@@ -86,36 +86,6 @@ def pickupNearestData(pickupLon, pickupLat,
 
     return distArray
 
-def makeTimeseries(thisDataFolder,itemArray,latArray,lonArray,f):
-    '''
-    時系列のデータを日付とともに入力する
-    valueがないときはnp.nan
-    valueはlog10の値らしいので取り敢えず変換する
-    '''
-    
-    distArray = pickupNearestData(pickupLon,pickupLat,
-            itemArray,latArray,lonArray)
-    nearestArrayIndexes = np.where(distArray==distArray.min())
-
-    res = 0
-    #for thisNearestArrayIndex in nearestArrayIndexes:
-    #    res += itemArray[thisNearestArrayIndex[0],thisNearestArrayIndex[1]]
-    #res = res / len(nearestArrayIndexes)
-    # 一つ目を使うことにする
-    res = itemArray[nearestArrayIndexes[0],nearestArrayIndexes[0]]
-
-    # log10の値ということなので変換、もしおかしなあたいのときは-9999
-    try:
-        thisValue = 10**res[0]
-    except:
-        thisValue = -9999
-
-    thisDate = thisDataFolder.split('_')[7]
-
-    f.write(f"{thisDate},{thisValue}\n")
-    
-
-
 
 class visSentinel():
 
@@ -124,9 +94,13 @@ class visSentinel():
         self.dataDir = dataDir
         self.pngExec = pngExec
         self.pickupExec = pickupExec
+        self.lons = lons
+        self.lats = lats
         # 画像出力を行う場合
         if self.pngExec == True:
+            self.visSHPs = visSHPs
             self.pngDir = pngDir
+            self.shpDir = shpDir
             ## フォルダ作成
             if not os.path.isdir(pngDir):
                 subprocess.run(['mkdir','-p',pngDir])
@@ -134,6 +108,8 @@ class visSentinel():
         ## 連続値結果を取得する場合
         if self.pickupExec == True:
             self.pickupDir = pickupDir
+            self.pickupLon = pickupLon
+            self.pickupLat = pickupLat
             # フォルダ作成
             if not os.path.isdir(pickupDir):
                 subprocess.run(['mkdir','-p',pickupDir])
@@ -146,45 +122,53 @@ class visSentinel():
 
         for i,thisDataFolder in enumerate(dataFolders):
          
+            self.thisDataFolder = thisDataFolder
             print(f'{i+1}番目/{len(dataFolders)}中')
             try:
-                self.makeFigure(thisDataFolder)
+                self.makeData()
+                self.makeFigure()
+                self.makeTimeseries()
             except Exception as e:
                 print(e)
 
             writeTimeseries()
         
-    def makeFigure(self,thisDataFolder):
+    def makeData(self):
         '''
-        このdataFolderの図を作成する
+        生データを読み込み作図や時系列データの作成の元を作成する
         '''
         ## 緯度経度のファイル
-        geoCoordNCFile = thisDataFolder + '/geo_coordinates.nc'
+        geoCoordNCFile = self.thisDataFolder + '/geo_coordinates.nc'
         geoNC = netCDF4.Dataset(geoCoordNCFile,'r')
         ## 対象項目(クロロフィル)
-        chlNCFile = thisDataFolder + '/chl_nn.nc'
+        chlNCFile = self.thisDataFolder + '/chl_nn.nc'
         chlNC = netCDF4.Dataset(chlNCFile,'r')
         chlLabel = 'CHL_NN'
 
         itemNC=chlNC
         itemLabel = chlLabel
 
-
-        regionIndex = getLatLonArray(geoCoordNCFile,thisLat,thisLon)
+        regionIndex = getLatLonArray(geoCoordNCFile,lats,lons)
 
 
         # 緯度・経度・項目の配列を取得
         startLatIndex = regionIndex
-        itemArray, latArray, lonArray = getArrays(
+        self.itemArray, self.latArray, self.lonArray = getArrays(
                 geoNC,itemNC,itemLabel,regionIndex)
 
-        #makeTimeseries(thisDataFolder,itemArray,latArray,lonArray,f)
+        return
+
+    def makeFigure(self):
+        '''
+        このdataFolderの図を作成する
+        '''
+
 
         fig = plt.figure()
 
         ax = fig.add_subplot(111,projection=ccrs.PlateCarree())
 
-        cont = ax.contourf(lonArray, latArray, 10**itemArray, 
+        cont = ax.contourf(self.lonArray, self.latArray, 10**self.itemArray, 
                 levels=range(0,50,10),cmap='jet',
                      transform=ccrs.PlateCarree())
         cbar =fig.colorbar(cont)
@@ -192,8 +176,8 @@ class visSentinel():
         #coast = ax.coastlines(resolution="10m")
 
         # 行政界の描画
-        for thisShp in visSHPs:
-            src = shapereader.Reader(shpDir + thisShp)
+        for thisShp in self.visSHPs:
+            src = shapereader.Reader(self.shpDir + thisShp)
 
             shp_ftr = ShapelyFeature(src.geometries(),
                     ccrs.PlateCarree(),
@@ -202,13 +186,39 @@ class visSentinel():
 
             ax.add_feature(shp_ftr)
 
-        ax.set_xlim(thisLon[0],thisLon[1])
-        ax.set_ylim(thisLat[0],thisLat[1])
+        ax.set_xlim(lons[0],lons[1])
+        ax.set_ylim(lats[0],lats[1])
 
         
-        thisDate = thisDataFolder.split('_')[7]
+        thisDate = self.thisDataFolder.split('_')[7]
         plt.savefig(f'{self.pngDir}/{thisDate}.png')
 
+    def makeTimeseries(self):
+        '''
+        時系列のデータを日付とともに入力する
+        valueがないときはnp.nan
+        valueはlog10の値らしいので取り敢えず変換する
+        '''
+        
+        distArray = pickupNearestData(self.pickupLon,self.pickupLat,
+                self.itemArray,self.latArray,self.lonArray)
+        nearestArrayIndexes = np.where(distArray==distArray.min())
+
+        res = 0
+        res = self.itemArray[nearestArrayIndexes[0],nearestArrayIndexes[0]]
+
+        # log10の値ということなので変換、もしおかしなあたいのときは-9999
+        try:
+            thisValue = 10**res[0]
+        except:
+            thisValue = -9999
+
+        thisDate = self.thisDataFolder.split('_')[7]
+
+        with open(f'{self.pickupDir}/{pickupResFilename}','a') as f:
+            f.write(f"{thisDate},{thisValue}\n")
+
+        return
 
 if __name__ == '__main__':
 
