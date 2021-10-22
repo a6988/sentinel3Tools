@@ -97,6 +97,7 @@ class visSentinel():
             self.visSHPs = visSHPs
             self.pngDir = pngDir
             self.shpDir = shpDir
+            self.vrange = vrange
             ## フォルダ作成
             if not os.path.isdir(pngDir):
                 subprocess.run(['mkdir','-p',pngDir])
@@ -163,16 +164,29 @@ class visSentinel():
         '''
         このdataFolderの図を作成する
         '''
+        ### COLORBAR TICKS
+        self.CbarTicks = np.linspace(self.vrange[0], self.vrange[1], 5)
+
+
 
 
         fig = plt.figure()
 
         ax = fig.add_subplot(111,projection=ccrs.PlateCarree())
 
-        cont = ax.contourf(self.lonArray, self.latArray, 10**self.itemArray, 
-                levels=range(0,50,10),cmap='jet',
-                     transform=ccrs.PlateCarree())
-        cbar =fig.colorbar(cont)
+        contour = ax.pcolormesh(
+                self.lonArray, self.latArray, self.itemArray*10, 
+                edgecolor="none", cmap="rainbow", 
+                vmin=self.vrange[0], vmax=self.vrange[1], 
+                shading="auto", zorder=1)
+        
+        bar     = fig.colorbar(contour, ax=ax, 
+                ticks=self.CbarTicks)
+
+        #cont = ax.contourf(self.lonArray, self.latArray, 10**self.itemArray, 
+        #        levels=range(0,50,10),cmap='jet',
+        #             transform=ccrs.PlateCarree())
+        #cbar =fig.colorbar(cont)
 
         #coast = ax.coastlines(resolution="10m")
 
