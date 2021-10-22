@@ -11,11 +11,6 @@ from parameter import *
 import subprocess
 import os
 
-def writeTimeseries():
-    '''
-    時系列データの書き込みを行う
-    '''
-    pass
 
 def getLatLonArray(geoCoordNCFile:str, lats:list,lons:list):
     '''
@@ -96,6 +91,7 @@ class visSentinel():
         self.pickupExec = pickupExec
         self.lons = lons
         self.lats = lats
+        self.targetItems = targetItems
         # 画像出力を行う場合
         if self.pngExec == True:
             self.visSHPs = visSHPs
@@ -124,14 +120,16 @@ class visSentinel():
          
             self.thisDataFolder = thisDataFolder
             print(f'{i+1}番目/{len(dataFolders)}中')
-            try:
+            #try:
+            for thisTargetItem in self.targetItems:
+                self.thisTargetItem = thisTargetItem
                 self.makeData()
-                self.makeFigure()
-                self.makeTimeseries()
-            except Exception as e:
-                print(e)
-
-            writeTimeseries()
+                if self.pngExec == True:
+                    self.makeFigure()
+                if self.pickupExec == True:
+                    self.makeTimeseries()
+            #except Exception as e:
+            #    print(e)
         
     def makeData(self):
         '''
@@ -140,16 +138,19 @@ class visSentinel():
         ## 緯度経度のファイル
         geoCoordNCFile = self.thisDataFolder + '/geo_coordinates.nc'
         geoNC = netCDF4.Dataset(geoCoordNCFile,'r')
-        ## 対象項目(クロロフィル)
-        chlNCFile = self.thisDataFolder + '/chl_nn.nc'
-        chlNC = netCDF4.Dataset(chlNCFile,'r')
-        chlLabel = 'CHL_NN'
+        ## 対象項目
+        if self.thisTargetItem == 'CHLA':
+            # クロロフィルはニューラルネットワークのプロダクトを想定
+            itemNCFile = self.thisDataFolder + '/chl_nn.nc'
+            itemLabel = 'CHL_NN'
+        elif self.thisTargetItem == 'TSM':
+            # クロロフィルはニューラルネットワークのプロダクトを想定
+            itemNCFile = self.thisDataFolder + '/   .nc'
+            itemLabel = ''
 
-        itemNC=chlNC
-        itemLabel = chlLabel
+        itemNC = netCDF4.Dataset(itemNCFile,'r')
 
         regionIndex = getLatLonArray(geoCoordNCFile,lats,lons)
-
 
         # 緯度・経度・項目の配列を取得
         startLatIndex = regionIndex
@@ -191,7 +192,7 @@ class visSentinel():
 
         
         thisDate = self.thisDataFolder.split('_')[7]
-        plt.savefig(f'{self.pngDir}/{thisDate}.png')
+        plt.savefig(f'{self.pngDir}/{self.thisTargetItem}_{thisDate}.png')
 
     def makeTimeseries(self):
         '''
