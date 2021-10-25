@@ -146,8 +146,8 @@ class visSentinel():
             itemLabel = 'CHL_NN'
         elif self.thisTargetItem == 'TSM':
             # クロロフィルはニューラルネットワークのプロダクトを想定
-            itemNCFile = self.thisDataFolder + '/   .nc'
-            itemLabel = ''
+            itemNCFile = self.thisDataFolder + '/tsm_nn.nc'
+            itemLabel = 'TSM_NN'
 
         itemNC = netCDF4.Dataset(itemNCFile,'r')
 
