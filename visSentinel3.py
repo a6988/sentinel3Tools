@@ -108,9 +108,8 @@ class visSentinel():
 
         ax = fig.add_subplot(111,projection=ccrs.PlateCarree())
 
-        # log10の値が入っているのであれば、10**self.itemArrayとすべき
         contour = ax.pcolormesh(
-                self.lonArray, self.latArray, self.itemArray*10, 
+                self.lonArray, self.latArray, self.itemArray, 
                 edgecolor="none", cmap="rainbow", 
                 vmin=self.vrange[0], vmax=self.vrange[1], 
                 shading="auto", zorder=1)
@@ -159,7 +158,7 @@ class visSentinel():
 
         # log10の値ということなので変換、もしおかしなあたいのときは-9999
         try:
-            thisValue = 10**res[0]
+            thisValue = res[0]
         except:
             thisValue = -9999
 
@@ -250,7 +249,8 @@ class visSentinel():
         startLon = regionIndex['startLonIndex']
         endLon = regionIndex['endLonIndex']
 
-        # Sentinel3のデータは(少なくともCHLAは)log10の値として入っている
+        # Sentinel3のデータは(CHLA及びTSMは)
+        # log10の値として入っている
         if self.thisTargetItem in ['CHLA','TSM']:
             itemArray = 10 ** (itemNC[itemLabel][startLat:endLat,startLon:endLon])
         
